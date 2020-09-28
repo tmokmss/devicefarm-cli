@@ -29,13 +29,12 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "devicefarm-cli"
 	app.Usage = "allows you to interact with AWS devicefarm from the command line"
-	app.Version = "0.0.1"
+	app.Version = "0.0.2"
 
-	app.Authors = []*cli.Author{
-		{Name: "Patrick Debois",
-			Email: "Patrick.Debois@jedi.be",
-		},
-	}
+	app.Authors = []*cli.Author{{
+		Name:  "Patrick Debois",
+		Email: "Patrick.Debois@jedi.be",
+	}}
 
 	app.Commands = []*cli.Command{
 		{
@@ -65,8 +64,8 @@ func main() {
 						projectArn := c.String("project")
 						deviceName := c.String("device")
 						poolName := c.String("name")
-						_, _ = createPoolFromDevice(svc, poolName, deviceName, projectArn)
-						return nil
+						_, err := createPoolFromDevice(svc, poolName, deviceName, projectArn)
+						return err
 					},
 				},
 			},
@@ -391,11 +390,10 @@ func main() {
 				&cli.StringFlag{
 					Name:    "test-type",
 					EnvVars: []string{"DF_TEST_TYPE"},
-					//Usage:  "type of test [APPIUM_JAVA_JUNIT_TEST_PACKAGE, INSTRUMENTATION_TEST_PACKAGE, UIAUTOMATION_TEST_PACKAGE, APPIUM_JAVA_TESTNG_TEST_PACKAGE, IOS_APP, CALABASH_TEST_PACKAGE, ANDROID_APP, UIAUTOMATOR_TEST_PACKAGE, XCTEST_TEST_PACKAGE, EXTERNAL_DATA]",
-					Usage: "type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST]",
+					Usage:   "type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, APPIUM_NODE, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST]",
 				},
 				&cli.StringFlag{
-					Name:    "test",
+					Name:    "test-package",
 					Usage:   "Arn or name of the test upload to schedule",
 					EnvVars: []string{"DF_TEST"},
 				},
@@ -416,8 +414,7 @@ func main() {
 				testPackageArn := c.String("test-package")
 				testPackageType := c.String("test-type")
 				testPackageFile := c.String("test-file")
-				_ = scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType)
-				return nil
+				return scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType)
 			},
 		},
 		{
@@ -523,14 +520,17 @@ func main() {
 						uploadName := c.String("name")
 						_, err := uploadPut(svc, uploadFilePath, uploadType, projectArn, uploadName)
 						failOnErr(err, "error Uploading file")
-						return nil
+						return err
 					},
 				},
 			},
 		},
 	}
 
-	_ = app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // --- internal API starts here
@@ -570,7 +570,7 @@ func createPoolFromDevice(svc *devicefarm.DeviceFarm, poolName string, deviceNam
 		Description: aws.String("autocreated pool " + poolName),
 		ProjectArn:  aws.String(projectArn),
 		Rules: []*devicefarm.Rule{
-			&devicefarm.Rule{
+			{
 				Attribute: aws.String("Arn"),
 				Operator:  aws.String("IN"),
 				// Value: "[\"Arn:aws:devicefarm:us-west-2::device:6A553F3B3D384DB1A780C590FCC7F85D\"]"
@@ -803,6 +803,14 @@ func lookupTestPackageType(testType string) (testPackageType string, err error) 
 
 	if testType == "XCTEST" {
 		return "XCTEST_TEST_PACKAGE", nil
+	}
+
+	if testType == "APPIUM_NODE" {
+		return "APPIUM_NODE_TEST_PACKAGE", nil
+	}
+
+	if testType == "BUILTIN_EXPLORER" || testType == "BUILTIN_FUZZ" {
+		return "NONE", nil
 	}
 
 	// BUILTIN_EXPLORER: For Android, an app explorer that will traverse an Android app, interacting with it and capturing screenshots at the same time.
@@ -1046,12 +1054,15 @@ func downloadURL(url string, fileName string) {
 
 	if debug {
 		fmt.Println(resp.Status)
-		size, err := io.Copy(file, resp.Body)
+	}
 
-		if err != nil {
-			panic(err)
-		}
+	size, err := io.Copy(file, resp.Body)
 
+	if err != nil {
+		panic(err)
+	}
+
+	if debug {
 		fmt.Printf("%s with %v bytes downloaded", fileName, size)
 	}
 
