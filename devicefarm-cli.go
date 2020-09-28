@@ -29,7 +29,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "devicefarm-cli"
 	app.Usage = "allows you to interact with AWS devicefarm from the command line"
-	app.Version = "0.0.2"
+	app.Version = "0.1.0"
 
 	app.Authors = []*cli.Author{{
 		Name:  "Patrick Debois",
