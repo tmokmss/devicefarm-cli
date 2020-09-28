@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/devicefarm"
-	"github.com/codegangsta/cli"
 	"github.com/olekukonko/tablewriter"
+	"github.com/urfave/cli"
 	"io"
 	"log"
 	"net/http"
@@ -22,48 +23,50 @@ import (
 )
 
 func main() {
-
-	svc := devicefarm.New(&aws.Config{Region: aws.String("us-west-2")})
+	svc := devicefarm.New(session.Must(session.NewSession()),
+		&aws.Config{Region: aws.String("us-west-2")})
 
 	app := cli.NewApp()
 	app.Name = "devicefarm-cli"
 	app.Usage = "allows you to interact with AWS devicefarm from the command line"
 	app.Version = "0.0.1"
-	app.Authors = []cli.Author{
-		cli.Author{Name: "Patrick Debois",
+
+	app.Authors = []*cli.Author{
+		{Name: "Patrick Debois",
 			Email: "Patrick.Debois@jedi.be",
 		},
 	}
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:  "create",
 			Usage: "create devicefarm elements", // of an account
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "devicepool",
 					Usage: "create devicepool from device",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
-						cli.StringFlag{
-							Name:   "device",
-							EnvVar: "DF_DEVICE",
-							Usage:  "device name",
+						&cli.StringFlag{
+							Name:    "device",
+							EnvVars: []string{"DF_DEVICE"},
+							Usage:   "device name",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "name",
 							Usage: "pool name",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						projectArn := c.String("project")
 						deviceName := c.String("device")
 						poolName := c.String("name")
-						createPoolFromDevice(svc, poolName, deviceName, projectArn)
+						_, _ = createPoolFromDevice(svc, poolName, deviceName, projectArn)
+						return nil
 					},
 				},
 			},
@@ -71,81 +74,86 @@ func main() {
 		{
 			Name:  "list",
 			Usage: "list various elements on devicefarm",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "projects",
 					Usage: "list the projects", // of an account
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						listProjects(svc)
+						return nil
 					},
 				},
 				{
 					Name:  "devices",
 					Usage: "list the devices", // globally
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						listDevices(svc)
+						return nil
 					},
 				},
 				{
 					Name:  "samples",
 					Usage: "list the samples",
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						// Not yet implemented
 						// listSamples()
+						return nil
 					},
 				},
 				{
 					Name:  "jobs",
 					Usage: "list the jobs", // of a test
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 
 						listJobs(svc, runArn)
+						return nil
 					},
 				},
 				{
 					Name:  "uploads",
 					Usage: "lists all uploads", // of a Project
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						projectArn := c.String("project")
 						listUploads(svc, projectArn)
+						return nil
 					},
 				},
 				{
 					Name:  "artifacts",
 					Usage: "list the artifacts", // of a test
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "job",
-							EnvVar: "DF_JOB",
-							Usage:  "job arn or run description",
+						&cli.StringFlag{
+							Name:    "job",
+							EnvVars: []string{"DF_JOB"},
+							Usage:   "job Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "type",
-							EnvVar: "DF_ARTIFACT_TYPE",
-							Usage:  "type of the artifact [LOG,FILE,SCREENSHOT]",
+						&cli.StringFlag{
+							Name:    "type",
+							EnvVars: []string{"DF_ARTIFACT_TYPE"},
+							Usage:   "type of the artifact [LOG,FILE,SCREENSHOT]",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						jobArn := c.String("job")
 
@@ -158,24 +166,25 @@ func main() {
 
 						artifactType := c.String("type")
 						listArtifacts(svc, filterArn, artifactType)
+						return nil
 					},
 				},
 				{
 					Name:  "suites",
 					Usage: "list the suites",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "job",
-							EnvVar: "DF_JOB",
-							Usage:  "job arn or run description",
+						&cli.StringFlag{
+							Name:    "job",
+							EnvVars: []string{"DF_JOB"},
+							Usage:   "job Arn or run description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						jobArn := c.String("job")
 						filterArn := ""
@@ -185,55 +194,57 @@ func main() {
 							filterArn = jobArn
 						}
 						listSuites(svc, filterArn)
+						return nil
 					},
 				},
 				{
 					Name:  "devicepools",
 					Usage: "list the devicepools", //globally
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
 					},
-					Action: func(c *cli.Context) {
-
+					Action: func(c *cli.Context) error {
 						projectArn := c.String("project")
 						listDevicePools(svc, projectArn)
+						return nil
 					},
 				},
 				{
 					Name: "problems",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
 					},
 					Usage: "list the problems", // of Test
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						listUniqueProblems(svc, runArn)
+						return nil
 					},
 				},
 				{
 					Name:  "tests",
 					Usage: "list the tests", // of a Run
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "job",
-							EnvVar: "DF_JOB",
-							Usage:  "job arn or run description",
+						&cli.StringFlag{
+							Name:    "job",
+							EnvVars: []string{"DF_JOB"},
+							Usage:   "job Arn or run description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						jobArn := c.String("job")
 						filterArn := ""
@@ -243,21 +254,23 @@ func main() {
 							filterArn = jobArn
 						}
 						listTests(svc, filterArn)
+						return nil
 					},
 				},
 				{
 					Name:  "runs",
 					Usage: "list the runs",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						projectArn := c.String("project")
 						listRuns(svc, projectArn)
+						return nil
 					},
 				},
 			},
@@ -265,28 +278,28 @@ func main() {
 		{
 			Name:  "download",
 			Usage: "download various devicefarm elements",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "artifacts",
 					Usage: "download the artifacts",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "job",
-							EnvVar: "DF_JOB",
-							Usage:  "job arn or run description",
+						&cli.StringFlag{
+							Name:    "job",
+							EnvVars: []string{"DF_JOB"},
+							Usage:   "job Arn or run description",
 						},
-						cli.StringFlag{
-							Name:   "type",
-							EnvVar: "DF_ARTIFACT_TYPE",
-							Usage:  "type of the artifact [LOG,FILE,SCREENSHOT]",
+						&cli.StringFlag{
+							Name:    "type",
+							EnvVars: []string{"DF_ARTIFACT_TYPE"},
+							Usage:   "type of the artifact [LOG,FILE,SCREENSHOT]",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						jobArn := c.String("job")
 
@@ -299,6 +312,7 @@ func main() {
 
 						artifactType := c.String("type")
 						downloadArtifacts(svc, filterArn, artifactType)
+						return nil
 					},
 				},
 			},
@@ -307,89 +321,91 @@ func main() {
 			Name:  "status",
 			Usage: "get the status of a run",
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:   "run",
-					EnvVar: "DF_RUN",
-					Usage:  "run arn or run description",
+				&cli.StringFlag{
+					Name:    "run",
+					EnvVars: []string{"DF_RUN"},
+					Usage:   "run Arn or run description",
 				},
 			},
-			Action: func(c *cli.Context) {
+			Action: func(c *cli.Context) error {
 				runArn := c.String("run")
 				runStatus(svc, runArn)
+				return nil
 			},
 		},
 		{
 			Name:  "report",
 			Usage: "get report about a run",
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:   "run",
-					EnvVar: "DF_RUN",
-					Usage:  "run arn or run description",
+				&cli.StringFlag{
+					Name:    "run",
+					EnvVars: []string{"DF_RUN"},
+					Usage:   "run Arn or run description",
 				},
 			},
-			Action: func(c *cli.Context) {
+			Action: func(c *cli.Context) error {
 				runArn := c.String("run")
 				runReport(svc, runArn)
+				return nil
 			},
 		},
 		{
 			Name:  "schedule",
 			Usage: "schedule a run",
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:   "project",
-					EnvVar: "DF_PROJECT",
-					Usage:  "project arn or project description",
+				&cli.StringFlag{
+					Name:    "project",
+					EnvVars: []string{"DF_PROJECT"},
+					Usage:   "project Arn or project description",
 				},
-				cli.StringFlag{
-					Name:   "device-pool",
-					EnvVar: "DF_DEVICE_POOL",
-					Usage:  "devicepool arn or devicepool name",
+				&cli.StringFlag{
+					Name:    "device-pool",
+					EnvVars: []string{"DF_DEVICE_POOL"},
+					Usage:   "devicepool Arn or devicepool name",
 				},
-				cli.StringFlag{
-					Name:   "device",
-					EnvVar: "DF_DEVICE",
-					Usage:  "device arn or devicepool name to run the test on",
+				&cli.StringFlag{
+					Name:    "device",
+					EnvVars: []string{"DF_DEVICE"},
+					Usage:   "device Arn or devicepool name to run the test on",
 				},
-				cli.StringFlag{
-					Name:   "name",
-					EnvVar: "DF_RUN_NAME",
-					Usage:  "name to give to the run that is scheduled",
+				&cli.StringFlag{
+					Name:    "name",
+					EnvVars: []string{"DF_RUN_NAME"},
+					Usage:   "name to give to the run that is scheduled",
 				},
-				cli.StringFlag{
-					Name:   "app-file",
-					EnvVar: "DF_APP_FILE",
-					Usage:  "path of the app file to be executed",
+				&cli.StringFlag{
+					Name:    "app-file",
+					EnvVars: []string{"DF_APP_FILE"},
+					Usage:   "path of the app file to be executed",
 				},
-				cli.StringFlag{
-					Name:   "app-type",
-					EnvVar: "DF_APP_TYPE",
-					Usage:  "type of app [ANDROID_APP,IOS_APP]",
+				&cli.StringFlag{
+					Name:    "app-type",
+					EnvVars: []string{"DF_APP_TYPE"},
+					Usage:   "type of app [ANDROID_APP,IOS_APP]",
 				},
-				cli.StringFlag{
-					Name:   "test-file",
-					EnvVar: "DF_TEST_FILE",
-					Usage:  "path of the test file to be executed",
+				&cli.StringFlag{
+					Name:    "test-file",
+					EnvVars: []string{"DF_TEST_FILE"},
+					Usage:   "path of the test file to be executed",
 				},
-				cli.StringFlag{
-					Name:   "test-type",
-					EnvVar: "DF_TEST_TYPE",
+				&cli.StringFlag{
+					Name:    "test-type",
+					EnvVars: []string{"DF_TEST_TYPE"},
 					//Usage:  "type of test [APPIUM_JAVA_JUNIT_TEST_PACKAGE, INSTRUMENTATION_TEST_PACKAGE, UIAUTOMATION_TEST_PACKAGE, APPIUM_JAVA_TESTNG_TEST_PACKAGE, IOS_APP, CALABASH_TEST_PACKAGE, ANDROID_APP, UIAUTOMATOR_TEST_PACKAGE, XCTEST_TEST_PACKAGE, EXTERNAL_DATA]",
 					Usage: "type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST]",
 				},
-				cli.StringFlag{
-					Name:   "test",
-					Usage:  "arn or name of the test upload to schedule",
-					EnvVar: "DF_TEST",
+				&cli.StringFlag{
+					Name:    "test",
+					Usage:   "Arn or name of the test upload to schedule",
+					EnvVars: []string{"DF_TEST"},
 				},
-				cli.StringFlag{
-					Name:   "app",
-					Usage:  "arn or name of the app upload to schedule",
-					EnvVar: "DF_APP",
+				&cli.StringFlag{
+					Name:    "app",
+					Usage:   "Arn or name of the app upload to schedule",
+					EnvVars: []string{"DF_APP"},
 				},
 			},
-			Action: func(c *cli.Context) {
+			Action: func(c *cli.Context) error {
 				projectArn := c.String("project")
 				runName := c.String("name")
 				deviceArn := c.String("device")
@@ -400,36 +416,38 @@ func main() {
 				testPackageArn := c.String("test-package")
 				testPackageType := c.String("test-type")
 				testPackageFile := c.String("test-file")
-				scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType)
+				_ = scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType)
+				return nil
 			},
 		},
 		{
 			Name:  "create",
 			Usage: "creates various devicefarm elements",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "upload",
 					Usage: "creates an upload",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "name",
 							Usage: "name of the upload",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "type",
 							Usage: "type of upload [ANDROID_APP,IOS_APP,EXTERNAL_DATA,APPIUM_JAVA_JUNIT_TEST_PACKAGE,APPIUM_JAVA_TESTNG_TEST_PACKAGE,CALABASH_TEST_PACKAGE,INSTRUMENTATION_TEST_PACKAGE,UIAUTOMATOR_TEST_PACKAGE,XCTEST_TEST_PACKAGE",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						uploadName := c.String("name")
 						uploadType := c.String("type")
 						projectArn := c.String("project")
 						uploadCreate(svc, uploadName, uploadType, projectArn)
+						return nil
 					},
 				},
 			},
@@ -437,35 +455,37 @@ func main() {
 		{
 			Name:  "info",
 			Usage: "get detailed info about various devicefarm elements",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "run",
 					Usage: "get info about a run",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "run",
-							EnvVar: "DF_RUN",
-							Usage:  "run arn or run description",
+						&cli.StringFlag{
+							Name:    "run",
+							EnvVars: []string{"DF_RUN"},
+							Usage:   "run Arn or run description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						runArn := c.String("run")
 						runInfo(svc, runArn)
+						return nil
 					},
 				},
 				{
 					Name:  "upload",
 					Usage: "info about uploads",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "upload",
-							EnvVar: "DF_UPLOAD",
-							Usage:  "upload arn or description",
+						&cli.StringFlag{
+							Name:    "upload",
+							EnvVars: []string{"DF_UPLOAD"},
+							Usage:   "upload Arn or description",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						uploadArn := c.String("upload")
 						uploadInfo(svc, uploadArn)
+						return nil
 					},
 				},
 			},
@@ -473,44 +493,44 @@ func main() {
 		{
 			Name:  "upload",
 			Usage: "uploads an app, test and data",
-			Subcommands: []cli.Command{
+			Subcommands: []*cli.Command{
 				{
 					Name:  "file",
 					Usage: "uploads an file",
 					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:   "project",
-							EnvVar: "DF_PROJECT",
-							Usage:  "project arn or project description",
+						&cli.StringFlag{
+							Name:    "project",
+							EnvVars: []string{"DF_PROJECT"},
+							Usage:   "project Arn or project description",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "name",
 							Usage: "name of the upload",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "file",
 							Usage: "path to the file to upload",
 						},
-						cli.StringFlag{
+						&cli.StringFlag{
 							Name:  "type",
 							Usage: "type of upload [ANDROID_APP,IOS_APP,EXTERNAL_DATA,APPIUM_JAVA_JUNIT_TEST_PACKAGE,APPIUM_JAVA_TESTNG_TEST_PACKAGE,CALABASH_TEST_PACKAGE,INSTRUMENTATION_TEST_PACKAGE,UIAUTOMATOR_TEST_PACKAGE,XCTEST_TEST_PACKAGE",
 						},
 					},
-					Action: func(c *cli.Context) {
+					Action: func(c *cli.Context) error {
 						uploadType := c.String("type")
 						projectArn := c.String("project")
 						uploadFilePath := c.String("file")
 						uploadName := c.String("name")
 						_, err := uploadPut(svc, uploadFilePath, uploadType, projectArn, uploadName)
 						failOnErr(err, "error Uploading file")
+						return nil
 					},
 				},
 			},
 		},
 	}
 
-	app.Run(os.Args)
-
+	_ = app.Run(os.Args)
 }
 
 // --- internal API starts here
@@ -525,14 +545,14 @@ func lookupDeviceArn(svc *devicefarm.DeviceFarm, deviceName string) (deviceArn s
 	devices := make(map[string]string)
 	for _, m := range resp.Devices {
 		key := fmt.Sprintf("%s - %s", *m.Name, *m.Os)
-		devices[key] = *m.ARN
-		//line := []string{*m.Name, *m.Os, *m.Platform, *m.FormFactor, *m.ARN}
+		devices[key] = *m.Arn
+		//line := []string{*m.Name, *m.Os, *m.Platform, *m.FormFactor, *m.Arn}
 	}
 
-	arn := devices[deviceName]
+	Arn := devices[deviceName]
 
-	if arn != "" {
-		return arn, nil
+	if Arn != "" {
+		return Arn, nil
 	}
 
 	return "", errors.New("failed to find a device with name " + deviceName)
@@ -548,12 +568,12 @@ func createPoolFromDevice(svc *devicefarm.DeviceFarm, poolName string, deviceNam
 	req := &devicefarm.CreateDevicePoolInput{
 		Name:        aws.String(poolName),
 		Description: aws.String("autocreated pool " + poolName),
-		ProjectARN:  aws.String(projectArn),
+		ProjectArn:  aws.String(projectArn),
 		Rules: []*devicefarm.Rule{
 			&devicefarm.Rule{
-				Attribute: aws.String("ARN"),
+				Attribute: aws.String("Arn"),
 				Operator:  aws.String("IN"),
-				// Value: "[\"arn:aws:devicefarm:us-west-2::device:6A553F3B3D384DB1A780C590FCC7F85D\"]"
+				// Value: "[\"Arn:aws:devicefarm:us-west-2::device:6A553F3B3D384DB1A780C590FCC7F85D\"]"
 				Value: aws.String("[\"" + deviceArn + "\"]"),
 			},
 		},
@@ -565,7 +585,7 @@ func createPoolFromDevice(svc *devicefarm.DeviceFarm, poolName string, deviceNam
 		return "", err
 	}
 
-	return *resp.DevicePool.ARN, nil
+	return *resp.DevicePool.Arn, nil
 	//fmt.Println(awsutil.Prettify(resp))
 }
 
@@ -577,12 +597,12 @@ func listProjects(svc *devicefarm.DeviceFarm) {
 
 	//fmt.Println(awsutil.Prettify(resp))
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Name", "Created", "ARN"})
+	table.SetHeader([]string{"Name", "Created", "Arn"})
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetColWidth(50)
 
 	for _, m := range resp.Projects {
-		line := []string{*m.Name, time.Time.String(*m.Created), *m.ARN}
+		line := []string{*m.Name, time.Time.String(*m.Created), *m.Arn}
 		table.Append(line)
 	}
 	table.Render() // Send output
@@ -594,7 +614,7 @@ func listDevicePools(svc *devicefarm.DeviceFarm, projectArn string) {
 	// PRIVATE: A device pool that is created and managed by the device pool developer.
 
 	pool := &devicefarm.ListDevicePoolsInput{
-		ARN: aws.String(projectArn),
+		Arn: aws.String(projectArn),
 	}
 	resp, err := svc.ListDevicePools(pool)
 
@@ -612,19 +632,19 @@ func listDevices(svc *devicefarm.DeviceFarm) {
 	//fmt.Println(awsutil.Prettify(resp))
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Name", "Os", "Platform", "Form", "ARN"})
+	table.SetHeader([]string{"Name", "Os", "Platform", "Form", "Arn"})
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetColWidth(50)
 
 	for _, m := range resp.Devices {
-		line := []string{*m.Name, *m.Os, *m.Platform, *m.FormFactor, *m.ARN}
+		line := []string{*m.Name, *m.Os, *m.Platform, *m.FormFactor, *m.Arn}
 		table.Append(line)
 	}
 	table.Render() // Send output
 
 	/*
 	   	    {
-	         ARN: "arn:aws:devicefarm:us-west-2::device:A0E6E6E1059E45918208DF75B2B7EF6C",
+	         Arn: "Arn:aws:devicefarm:us-west-2::device:A0E6E6E1059E45918208DF75B2B7EF6C",
 	         CPU: {
 	           Architecture: "ARMv7",
 	           Clock: 2265,
@@ -652,7 +672,7 @@ func listDevices(svc *devicefarm.DeviceFarm) {
 func listUploads(svc *devicefarm.DeviceFarm, projectArn string) {
 
 	listReq := &devicefarm.ListUploadsInput{
-		ARN: aws.String(projectArn),
+		Arn: aws.String(projectArn),
 	}
 
 	resp, err := svc.ListUploads(listReq)
@@ -665,7 +685,7 @@ func listUploads(svc *devicefarm.DeviceFarm, projectArn string) {
 func listRuns(svc *devicefarm.DeviceFarm, projectArn string) {
 
 	listReq := &devicefarm.ListRunsInput{
-		ARN: aws.String(projectArn),
+		Arn: aws.String(projectArn),
 	}
 
 	resp, err := svc.ListRuns(listReq)
@@ -674,12 +694,12 @@ func listRuns(svc *devicefarm.DeviceFarm, projectArn string) {
 	//fmt.Println(awsutil.Prettify(resp))
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Name", "Platform", "Type", "Result", "Status", "Date", "ARN"})
+	table.SetHeader([]string{"Name", "Platform", "Type", "Result", "Status", "Date", "Arn"})
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetColWidth(50)
 
 	for _, m := range resp.Runs {
-		line := []string{*m.Name, *m.Platform, *m.Type, *m.Result, *m.Status, time.Time.String(*m.Created), *m.ARN}
+		line := []string{*m.Name, *m.Platform, *m.Type, *m.Result, *m.Status, time.Time.String(*m.Created), *m.Arn}
 		table.Append(line)
 	}
 	table.Render() // Send output
@@ -690,7 +710,7 @@ func listRuns(svc *devicefarm.DeviceFarm, projectArn string) {
 func listTests(svc *devicefarm.DeviceFarm, runArn string) {
 
 	listReq := &devicefarm.ListTestsInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.ListTests(listReq)
@@ -703,7 +723,7 @@ func listTests(svc *devicefarm.DeviceFarm, runArn string) {
 func listUniqueProblems(svc *devicefarm.DeviceFarm, runArn string) {
 
 	listReq := &devicefarm.ListUniqueProblemsInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.ListUniqueProblems(listReq)
@@ -716,7 +736,7 @@ func listUniqueProblems(svc *devicefarm.DeviceFarm, runArn string) {
 func listSuites(svc *devicefarm.DeviceFarm, filterArn string) {
 
 	listReq := &devicefarm.ListSuitesInput{
-		ARN: aws.String(filterArn),
+		Arn: aws.String(filterArn),
 	}
 
 	resp, err := svc.ListSuites(listReq)
@@ -817,12 +837,12 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 		}
 
 		fmt.Printf("\n")
-		appArn = *uploadApp.ARN
+		appArn = *uploadApp.Arn
 	}
 
 	if devicePoolArn == "" {
 		if deviceArn != "" {
-			// Try to create pool from device ARN
+			// Try to create pool from device Arn
 			foundArn, err := createPoolFromDevice(svc, deviceArn, deviceArn, projectArn)
 
 			if err != nil {
@@ -855,13 +875,13 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 		if err != nil {
 			return err
 		}
-		testPackageArn = *uploadTestPackage.ARN
+		testPackageArn = *uploadTestPackage.Arn
 		fmt.Printf("\n")
 	}
 
 	runTest := &devicefarm.ScheduleRunTest{
 		Type:           aws.String(testType),
-		TestPackageARN: aws.String(testPackageArn),
+		TestPackageArn: aws.String(testPackageArn),
 		//Parameters: // test parameters
 		//Filter: // filter to pass to tests
 	}
@@ -876,10 +896,10 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 	}
 
 	runReq := &devicefarm.ScheduleRunInput{
-		AppARN:        aws.String(appArn),
-		DevicePoolARN: aws.String(devicePoolArn),
+		AppArn:        aws.String(appArn),
+		DevicePoolArn: aws.String(devicePoolArn),
 		Name:          aws.String(runName),
-		ProjectARN:    aws.String(projectArn),
+		ProjectArn:    aws.String(projectArn),
 		Test:          runTest,
 	}
 
@@ -899,13 +919,13 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 	// Now we wait for the run status to go COMPLETED
 	fmt.Print("- Waiting until the tests complete ")
 
-	runArn := *resp.Run.ARN
+	runArn := *resp.Run.Arn
 
 	status := ""
 	for status != "COMPLETED" {
 		time.Sleep(4 * time.Second)
 		infoReq := &devicefarm.GetRunInput{
-			ARN: aws.String(runArn),
+			Arn: aws.String(runArn),
 		}
 
 		fmt.Print(".")
@@ -932,7 +952,7 @@ func listArtifacts(svc *devicefarm.DeviceFarm, filterArn string, artifactType st
 	fmt.Println(filterArn)
 
 	listReq := &devicefarm.ListArtifactsInput{
-		ARN: aws.String(filterArn),
+		Arn: aws.String(filterArn),
 	}
 
 	listReq.Type = aws.String("LOG")
@@ -962,7 +982,7 @@ func downloadArtifacts(svc *devicefarm.DeviceFarm, filterArn string, artifactTyp
 	}
 
 	listReq := &devicefarm.ListArtifactsInput{
-		ARN: aws.String(filterArn),
+		Arn: aws.String(filterArn),
 	}
 
 	types := []string{"LOG", "SCREENSHOT", "FILE"}
@@ -983,7 +1003,7 @@ func downloadArtifacts(svc *devicefarm.DeviceFarm, filterArn string, artifactTyp
 
 func downloadArtifact(fileName string, artifact *devicefarm.Artifact) {
 
-	url := *artifact.URL
+	url := *artifact.Url
 
 	dirName := path.Dir(fileName)
 	err := os.MkdirAll(dirName, 0777)
@@ -1041,7 +1061,7 @@ func downloadURL(url string, fileName string) {
 func listJobs(svc *devicefarm.DeviceFarm, runArn string) {
 
 	listReq := &devicefarm.ListJobsInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.ListJobs(listReq)
@@ -1055,7 +1075,7 @@ func uploadCreate(svc *devicefarm.DeviceFarm, uploadName string, uploadType stri
 
 	uploadReq := &devicefarm.CreateUploadInput{
 		Name:       aws.String(uploadName),
-		ProjectARN: aws.String(projectArn),
+		ProjectArn: aws.String(projectArn),
 		Type:       aws.String(uploadType),
 	}
 
@@ -1069,7 +1089,7 @@ func uploadCreate(svc *devicefarm.DeviceFarm, uploadName string, uploadType stri
 func runInfo(svc *devicefarm.DeviceFarm, runArn string) {
 
 	infoReq := &devicefarm.GetRunInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.GetRun(infoReq)
@@ -1082,7 +1102,7 @@ func runInfo(svc *devicefarm.DeviceFarm, runArn string) {
 func runReport(svc *devicefarm.DeviceFarm, runArn string) {
 
 	infoReq := &devicefarm.GetRunInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.GetRun(infoReq)
@@ -1093,12 +1113,12 @@ func runReport(svc *devicefarm.DeviceFarm, runArn string) {
 	//fmt.Println(awsutil.Prettify(resp))
 
 	jobReq := &devicefarm.ListJobsInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	// Find all artifacts
 	artifactReq := &devicefarm.ListArtifactsInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	types := []string{"LOG", "SCREENSHOT", "FILE"}
@@ -1129,7 +1149,7 @@ func runReport(svc *devicefarm.DeviceFarm, runArn string) {
 		//fmt.Println(awsutil.Prettify(job))
 
 		suiteReq := &devicefarm.ListSuitesInput{
-			ARN: aws.String(*job.ARN),
+			Arn: aws.String(*job.Arn),
 		}
 		suiteResp, err := svc.ListSuites(suiteReq)
 		failOnErr(err, "error getting run info")
@@ -1142,7 +1162,7 @@ func runReport(svc *devicefarm.DeviceFarm, runArn string) {
 
 			debug := false
 			if debug {
-				fmt.Printf("%s -> %s : %s \n----> %s\n", jobFriendlyName, *suite.Name, message, *suite.ARN)
+				fmt.Printf("%s -> %s : %s \n----> %s\n", jobFriendlyName, *suite.Name, message, *suite.Arn)
 			}
 			dirPrefix := fmt.Sprintf("report/%s/%s", jobFriendlyName, *suite.Name)
 			downloadArtifactsForSuite(dirPrefix, artifacts, *suite)
@@ -1154,7 +1174,7 @@ func runReport(svc *devicefarm.DeviceFarm, runArn string) {
 }
 
 func downloadArtifactsForSuite(dirPrefix string, allArtifacts map[string][]devicefarm.ListArtifactsOutput, suite devicefarm.Suite) {
-	suiteArn := *suite.ARN
+	suiteArn := *suite.Arn
 	artifactTypes := []string{"LOG", "SCREENSHOT", "FILE"}
 
 	r := strings.NewReplacer(":suite:", ":artifact:")
@@ -1165,7 +1185,7 @@ func downloadArtifactsForSuite(dirPrefix string, allArtifacts map[string][]devic
 		for _, artifactList := range typedArtifacts {
 			count := 0
 			for _, artifact := range artifactList.Artifacts {
-				if strings.HasPrefix(*artifact.ARN, artifactPrefix) {
+				if strings.HasPrefix(*artifact.Arn, artifactPrefix) {
 					//pathFull := strings.Split(suiteArn, ":")[6]
 					//pathSuffix := strings.Split(pathFull, "/")
 					//runId := pathSuffix[0]
@@ -1189,7 +1209,7 @@ func downloadArtifactsForSuite(dirPrefix string, allArtifacts map[string][]devic
 func runStatus(svc *devicefarm.DeviceFarm, runArn string) {
 
 	infoReq := &devicefarm.GetRunInput{
-		ARN: aws.String(runArn),
+		Arn: aws.String(runArn),
 	}
 
 	resp, err := svc.GetRun(infoReq)
@@ -1202,7 +1222,7 @@ func runStatus(svc *devicefarm.DeviceFarm, runArn string) {
 func jobInfo(svc *devicefarm.DeviceFarm, jobArn string) {
 
 	infoReq := &devicefarm.GetJobInput{
-		ARN: aws.String(jobArn),
+		Arn: aws.String(jobArn),
 	}
 
 	resp, err := svc.GetJob(infoReq)
@@ -1215,7 +1235,7 @@ func jobInfo(svc *devicefarm.DeviceFarm, jobArn string) {
 func suiteInfo(svc *devicefarm.DeviceFarm, suiteArn string) {
 
 	infoReq := &devicefarm.GetJobInput{
-		ARN: aws.String(suiteArn),
+		Arn: aws.String(suiteArn),
 	}
 
 	resp, err := svc.GetJob(infoReq)
@@ -1228,7 +1248,7 @@ func suiteInfo(svc *devicefarm.DeviceFarm, suiteArn string) {
 func uploadInfo(svc *devicefarm.DeviceFarm, uploadArn string) {
 
 	uploadReq := &devicefarm.GetUploadInput{
-		ARN: aws.String(uploadArn),
+		Arn: aws.String(uploadArn),
 	}
 
 	resp, err := svc.GetUpload(uploadReq)
@@ -1268,7 +1288,7 @@ func uploadPut(svc *devicefarm.DeviceFarm, uploadFilePath string, uploadType str
 
 	uploadReq := &devicefarm.CreateUploadInput{
 		Name:        aws.String(uploadName),
-		ProjectARN:  aws.String(projectArn),
+		ProjectArn:  aws.String(projectArn),
 		Type:        aws.String(uploadType),
 		ContentType: aws.String("application/octet-stream"),
 	}
@@ -1282,7 +1302,7 @@ func uploadPut(svc *devicefarm.DeviceFarm, uploadFilePath string, uploadType str
 
 	uploadInfo := uploadResp.Upload
 
-	upload_url := *uploadInfo.URL
+	upload_url := *uploadInfo.Url
 
 	if debug {
 		fmt.Println("- Upload Response result:")
@@ -1333,7 +1353,7 @@ func uploadPut(svc *devicefarm.DeviceFarm, uploadFilePath string, uploadType str
 		fmt.Print(".")
 		time.Sleep(4 * time.Second)
 		uploadReq := &devicefarm.GetUploadInput{
-			ARN: uploadInfo.ARN,
+			Arn: uploadInfo.Arn,
 		}
 
 		resp, err := svc.GetUpload(uploadReq)
