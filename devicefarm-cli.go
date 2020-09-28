@@ -398,6 +398,16 @@ func main() {
 					EnvVars: []string{"DF_TEST"},
 				},
 				&cli.StringFlag{
+					Name:    "test-spec",
+					EnvVars: []string{"DF_TEST_SPEC"},
+					Usage:   "arn of the test spec file for custom environment",
+				},
+				&cli.StringFlag{
+					Name:    "test-spec-file",
+					EnvVars: []string{"DF_TEST_SPEC_FILE"},
+					Usage:   "path of the test spec file for custom environment",
+				},
+				&cli.StringFlag{
 					Name:    "app",
 					Usage:   "Arn or name of the app upload to schedule",
 					EnvVars: []string{"DF_APP"},
@@ -414,7 +424,9 @@ func main() {
 				testPackageArn := c.String("test-package")
 				testPackageType := c.String("test-type")
 				testPackageFile := c.String("test-file")
-				return scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType)
+				testSpecArn := c.String("test-spec")
+				testSpecFile := c.String("test-spec-file")
+				return scheduleRun(svc, projectArn, runName, deviceArn, devicePoolArn, appArn, appFile, appType, testPackageArn, testPackageFile, testPackageType, testSpecArn, testSpecFile)
 			},
 		},
 		{
@@ -775,54 +787,54 @@ func guessAppType(fileName string) (appType string, err error) {
 
 }
 
-func lookupTestPackageType(testType string) (testPackageType string, err error) {
+func lookupTestTypes(testType string) (testPackageType string, testSpecType string, err error) {
 
 	if testType == "APPIUM_JAVA_JUNIT" {
-		return "APPIUM_JAVA_JUNIT_TEST_PACKAGE", nil
+		return "APPIUM_JAVA_JUNIT_TEST_PACKAGE", "APPIUM_JAVA_JUNIT_TEST_SPEC", nil
 	}
 
 	if testType == "INSTRUMENTATION" {
-		return "INSTRUMENTATION_TEST_PACKAGE", nil
+		return "INSTRUMENTATION_TEST_PACKAGE", "INSTRUMENTATION_TEST_SPEC", nil
 	}
 
 	if testType == "UIAUTOMATION" {
-		return "UIAUTOMATION_TEST_PACKAGE", nil
+		return "UIAUTOMATION_TEST_PACKAGE", "", nil
 	}
 
 	if testType == "APPIUM_JAVA_TESTNG" {
-		return "APPIUM_JAVA_TESTNG_TEST_PACKAGE", nil
+		return "APPIUM_JAVA_TESTNG_TEST_PACKAGE", "APPIUM_JAVA_TESTNG_TEST_SPEC", nil
 	}
 
 	if testType == "CALABASH" {
-		return "CALABASH_TEST_PACKAGE", nil
+		return "CALABASH_TEST_PACKAGE", "", nil
 	}
 
 	if testType == "UIAUTOMATER" {
-		return "UIAUTOMATER_TEST_PACKAGE", nil
+		return "UIAUTOMATER_TEST_PACKAGE", "", nil
 	}
 
 	if testType == "XCTEST" {
-		return "XCTEST_TEST_PACKAGE", nil
+		return "XCTEST_TEST_PACKAGE", "XCTEST_UI_TEST_SPEC", nil
 	}
 
 	if testType == "APPIUM_NODE" {
-		return "APPIUM_NODE_TEST_PACKAGE", nil
+		return "APPIUM_NODE_TEST_PACKAGE", "APPIUM_NODE_TEST_SPEC", nil
 	}
 
 	if testType == "BUILTIN_EXPLORER" || testType == "BUILTIN_FUZZ" {
-		return "NONE", nil
+		return "NONE", "", nil
 	}
 
 	// BUILTIN_EXPLORER: For Android, an app explorer that will traverse an Android app, interacting with it and capturing screenshots at the same time.
 	// BUILTIN_FUZZ: The built-in fuzz type.
-	return "", errors.New("Could not guess test type, you can use the BUILTIN_FUZZ or BUILTIN_EXPLORER")
+	return "", "", errors.New("Could not guess test type, you can use the BUILTIN_FUZZ or BUILTIN_EXPLORER")
 
 }
 
 /* Schedule Run */
-func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, deviceArn string, devicePoolArn string, appArn string, appFile string, appType string, testPackageArn string, testPackageFile string, testType string) (scheduleError error) {
-
+func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, deviceArn string, devicePoolArn string, appArn string, appFile string, appType string, testPackageArn string, testPackageFile string, testType string, testSpecArn string, testSpecFile string) error {
 	debug := false
+
 	// Upload the app file if there is one
 	if appFile != "" {
 
@@ -869,7 +881,7 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 		}
 	*/
 
-	testPackageType, err := lookupTestPackageType(testType)
+	testPackageType, testSpecType, err := lookupTestTypes(testType)
 	if err != nil {
 		return err
 	}
@@ -887,11 +899,27 @@ func scheduleRun(svc *devicefarm.DeviceFarm, projectArn string, runName string, 
 		fmt.Printf("\n")
 	}
 
+	// Upload the testSpec file if there is one
+	if testSpecFile != "" {
+		fmt.Printf("- Uploading test-spec-file %s of type %s ", testSpecFile, testSpecType)
+
+		uploadTestSpec, err := uploadPut(svc, testSpecFile, testSpecType, projectArn, "")
+		if err != nil {
+			return err
+		}
+		testSpecArn = *uploadTestSpec.Arn
+		fmt.Printf("\n")
+	}
+
 	runTest := &devicefarm.ScheduleRunTest{
 		Type:           aws.String(testType),
 		TestPackageArn: aws.String(testPackageArn),
 		//Parameters: // test parameters
 		//Filter: // filter to pass to tests
+	}
+
+	if testSpecArn != "" {
+		runTest.TestSpecArn = aws.String(testSpecArn)
 	}
 
 	if debug {
@@ -1197,16 +1225,8 @@ func downloadArtifactsForSuite(dirPrefix string, allArtifacts map[string][]devic
 			count := 0
 			for _, artifact := range artifactList.Artifacts {
 				if strings.HasPrefix(*artifact.Arn, artifactPrefix) {
-					//pathFull := strings.Split(suiteArn, ":")[6]
-					//pathSuffix := strings.Split(pathFull, "/")
-					//runId := pathSuffix[0]
-					//jobId := pathSuffix[1]
-					//suiteId := pathSuffix[2]
-					//artifactId := pathSuffix[3]
 					fileName := fmt.Sprintf("%s/%d_%s.%s", dirPrefix, count, *artifact.Name, *artifact.Extension)
-					//fileName := fmt.Sprintf("%s/%s/%s/%s.%s", dirPrefix, suiteId, artifactId, *artifact.Name, *artifact.Extension)
 					fmt.Printf("- [%s] %s\n", artifactType, fileName)
-					//fmt.Printf("- [%s] %s.%s\n", artifactType, *artifact.Name, *artifact.Extension)
 					downloadArtifact(fileName, artifact)
 					count++
 				}

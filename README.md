@@ -138,16 +138,18 @@ USAGE:
    command schedule [command options] [arguments...]
 
 OPTIONS:
-   --project            project arn or project description [$DF_PROJECT]
-   --device-pool        devicepool arn or devicepool name [$DF_DEVICE_POOL]
-   --device             device arn or devicepool name to run the test on [$DF_DEVICE]
-   --name               name to give to the run that is scheduled [$DF_RUN_NAME]
-   --app-file           path of the app file to be executed [$DF_APP_FILE]
-   --app-type           type of app [ANDROID_APP,IOS_APP] [$DF_APP_TYPE]
-   --test-file          path of the test file to be executed [$DF_TEST_FILE]
-   --test-type          type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST] [$DF_TEST_TYPE]
-   --test               arn or name of the test upload to schedule [$DF_TEST]
-   --app                arn or name of the app upload to schedule [$DF_APP]
+   --project               project Arn or project description [%DF_PROJECT%]
+   --device-pool           devicepool Arn or devicepool name [%DF_DEVICE_POOL%]
+   --device                device Arn or devicepool name to run the test on [%DF_DEVICE%]
+   --name                  name to give to the run that is scheduled [%DF_RUN_NAME%]
+   --app-file              path of the app file to be executed [%DF_APP_FILE%]
+   --app-type              type of app [ANDROID_APP,IOS_APP] [%DF_APP_TYPE%]
+   --test-file             path of the test file to be executed [%DF_TEST_FILE%]
+   --test-type             type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, APPIUM_NODE, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST] [%DF_TEST_TYPE%]
+   --test-package          Arn or name of the test upload to schedule [%DF_TEST%]
+   --test-spec             arn of the test spec file for custom environment [%DF_TEST_SPEC%]
+   --test-spec-file        path of the test spec file for custom environment [%DF_TEST_SPEC_FILE%]
+   --app                   Arn or name of the app upload to schedule [%DF_APP%]
 ```
 
 ## Report
