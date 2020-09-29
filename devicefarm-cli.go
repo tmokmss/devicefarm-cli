@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/devicefarm"
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"io"
 	"log"
 	"net/http"
@@ -29,7 +29,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "devicefarm-cli"
 	app.Usage = "allows you to interact with AWS devicefarm from the command line"
-	app.Version = "0.1.0"
+	app.Version = "0.1.2"
 
 	app.Authors = []*cli.Author{{
 		Name:  "Patrick Debois",
