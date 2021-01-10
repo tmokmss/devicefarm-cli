@@ -390,7 +390,7 @@ func main() {
 				&cli.StringFlag{
 					Name:    "test-type",
 					EnvVars: []string{"DF_TEST_TYPE"},
-					Usage:   "type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, APPIUM_NODE, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, BUILTIN_EXPLORER, XCTEST]",
+					Usage:   "type of test [UIAUTOMATOR, CALABASH, APPIUM_JAVA_TESTNG, APPIUM_NODE, APPIUM_PYTHON, APPIUM_RUBY, UIAUTOMATION, BUILTIN_FUZZ, INSTRUMENTATION, APPIUM_JAVA_JUNIT, APPIUM_WEB_JAVA_TESTING, APPIUM_WEB_JAVA_JUNIT, APPIUM_WEB_PYTHON, APPIUM_WEB_NODE, APPIUM_WEB_RUBY, BUILTIN_EXPLORER, XCTEST]",
 				},
 				&cli.StringFlag{
 					Name:    "test-package",
@@ -819,6 +819,34 @@ func lookupTestTypes(testType string) (testPackageType string, testSpecType stri
 
 	if testType == "APPIUM_NODE" {
 		return "APPIUM_NODE_TEST_PACKAGE", "APPIUM_NODE_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_PYTHON" {
+		return "APPIUM_PYTHON_TEST_PACKAGE", "APPIUM_PYTHON_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_RUBY" {
+		return "APPIUM_RUBY_TEST_PACKAGE", "APPIUM_RUBY_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_WEB_JAVA_JUNIT" {
+		return "APPIUM_WEB_JAVA_JUNIT_TEST_PACKAGE", "APPIUM_WEB_JAVA_JUNIT_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_WEB_JAVA_TESTNG" {
+		return "APPIUM_WEB_JAVA_TESTNG_TEST_PACKAGE", "APPIUM_WEB_JAVA_TESTNG_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_WEB_PYTHON" {
+		return "APPIUM_WEB_PYTHON_TEST_PACKAGE", "APPIUM_WEB_PYTHON_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_WEB_NODE" {
+		return "APPIUM_WEB_NODE_TEST_PACKAGE", "APPIUM_WEB_NODE_TEST_SPEC", nil
+	}
+
+	if testType == "APPIUM_WEB_RUBY" {
+		return "APPIUM_WEB_RUBY_TEST_PACKAGE", "APPIUM_WEB_RUBY_TEST_SPEC", nil
 	}
 
 	if testType == "BUILTIN_EXPLORER" || testType == "BUILTIN_FUZZ" {
